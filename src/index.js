@@ -1,16 +1,17 @@
 import React from "react";
 import ReactDOM from "react-dom";
+import { Provider } from "react-redux";
 import "./index.css";
 import App from "./App";
+import store from "./store";
+import Client from "./protocols/Client";
+import { connectClient, setClient } from "./store/network";
 
-import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
-import rootReducer from "./store";
-
-const store = configureStore({
-  reducer: { rootReducer },
-  devTools: process.env.NODE_ENV !== "production",
-});
+const config = {
+  sessionURL: "ws://localhost:1234/ws",
+};
+store.dispatch(setClient(new Client()));
+store.dispatch(connectClient(config));
 
 ReactDOM.render(
   <Provider store={store}>

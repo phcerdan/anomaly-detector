@@ -1,89 +1,72 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import Client from "../protocols/Client";
 
-// Global var
-let uniqueRequestId = 1;
-
-export const initialState = {
-  requests: {
-    /* id: { message, data, ... } */
+const initialNetworkState = {
+  client: null,
+  busy: {
+    count: 0,
+    progress: 0,
   },
-  pending: [],
-  success: [],
-  error: [],
-  progress: "",
 };
 
-function now() {
-  return Number(new Date());
-}
+export const connectClient = createAsyncThunk(
+  "connectClient",
+  async (config, { dispatch, getState }) => {
+    console.log("getState()", getState());
+    const currentClient = getState().network.client;
+    if (currentClient && currentClient.isConnected()) {
+      currentClient.disconnect();
+    }
+
+    currentClient.setBusyCallback((count) => {
+      console.log("dime arrrgo");
+      const setCountAction = {
+        type: "network/setBusyCount",
+        payload: { count },
+      };
+      dispatch(setCountAction);
+    });
+
+    currentClient.updateBusy(+1);
+
+    currentClient.setConnectionErrorCallback((type, httpReq) => {
+      const message =
+        (httpReq && httpReq.response && httpReq.response.error) ||
+        `Connection ${type}`;
+      console.error(message);
+      console.log(httpReq);
+    });
+
+    console.log("About to connect client...");
+    // connect returns a Promise
+    return currentClient
+      .connect(config)
+      .then((validClient) => {
+        console.log(validClient);
+      })
+      .catch((error) => {
+        console.error("connectClient failed", error);
+      });
+  }
+);
 
 const networkSlice = createSlice({
   name: "network",
-  initialState,
+  initialState: initialNetworkState,
   reducers: {
-    createRequest: {
-      reducer: (state, action) => {
-        const id = action.payload.id[0];
-        state.requests[id] = {
-          message: action.payload.message,
-          start: action.payload.start,
-        };
-        state.pending.push(id);
-      },
-      prepare: (message = "empty") => {
-        // uniqueRequestId is a global variable
-        const id = `${uniqueRequestId}`;
-        uniqueRequestId += 1;
-        return {
-          payload: {
-            id: id, // string: string
-            message: message,
-            start: now(),
-          },
-        };
-      },
+    setClient: (state, action) => {
+      state.client = action.payload;
     },
-
-    success: (state, action) => {
-      if (!state.requests[action.payload.id]) {
-        console.error("no request for", action.payload.id, action.payload.data);
-      }
-      state.requests[action.payload.id] = {
-        message: state.requests[action.payload.id].message,
-        data: action.payload.data,
-        start: state.requests[action.payload.id].start,
-        end: action.payload.end,
-      };
-      state.success.push(action.payload.id);
-      state.pending.splice(
-        state.pending.findIndex((id) => id === action.payload.id),
-        1
-      );
-    },
-
-    error: (state, action) => {
-      if (!state.requests[action.payload.id]) {
-        console.error("no request for", action.payload.id, action.payload.data);
-      }
-      state.requests[action.payload.id] = {
-        message: state.requests[action.payload.id].message,
-        data: action.payload.data,
-        start: state.requests[action.payload.id].start,
-        end: action.payload.end,
-      };
-      state.error.push(action.payload.id);
-      console.error("network_error:", action.payload.data);
-      state.pending.splice(
-        state.pending.findIndex((id) => id === action.payload.id),
-        1
-      );
-    },
-
-    reset: () => {
-      return initialState;
+    setBusyCount: (state, action) => {
+      state.busy.count = action.payload;
     },
   },
+  // extraReducers: (builder) => {
+  //   builder
+  //     .addCase(connectClient.fulfilled, (state, action) => {})
+  //     .addCase(connectClient.rejected, (state) => {});
+  // },
 });
 
-export const { createRequest, success, error, reset } = networkSlice.actions;
+export const { setClient, setBusyCount } = networkSlice.actions;
 export default networkSlice.reducer;

@@ -1,8 +1,11 @@
-import { combineReducers } from "redux";
+import { configureStore } from "@reduxjs/toolkit";
 import networkReducer from "./network";
 
-const rootReducer = combineReducers({
-  network: networkReducer,
+const store = configureStore({
+  reducer: {
+    network: networkReducer,
+  },
+  devTools: process.env.NODE_ENV !== "production",
 });
 
-export default rootReducer;
+export default store;
